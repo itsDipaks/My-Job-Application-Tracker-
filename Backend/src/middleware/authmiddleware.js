@@ -1,5 +1,6 @@
 import { base } from "../services/base.js";
 const baseService = new base();
+
 export const authmiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers?.authorization;

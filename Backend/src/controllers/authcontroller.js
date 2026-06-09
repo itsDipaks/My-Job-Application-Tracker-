@@ -63,7 +63,7 @@ class authController extends base {
     } catch (err) {
       console.log(err, "error ");
     }
-  }
+  };
   signup = async (req, res) => {
     let reqdata = req.body;
     if (!reqdata?.email) return this.validationError(res, "Email is required");
@@ -74,32 +74,46 @@ class authController extends base {
       let response = await db.query("select * from users where email=?", [
         reqdata?.email,
       ])
+
       if (response[0].length > 0)
         return this.errorResponse(
           res,
           "An account with this email already exists",
-        "GOOGLE_ASSOCIATE_ACCOUNT"
+          "GOOGLE_ASSOCIATE_ACCOUNT"
         );
       let newpassword = await this.hashedPassword(reqdata?.password);
 
       let ganaratedOtp = this.GanerateEmailOtp();
       let otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      await db.query(
-        "INSERT INTO users ( name, email, password_hash,otp, otp_expires_at) VALUES (?, ?, ?, ?,?)",
+      console.log("befor calling insert user");
+
+      let [result, err] = await db.query(
+        "INSERT INTO users ( name, email, password) VALUES (?, ?, ?)",
         [
           reqdata?.name,
           reqdata?.email,
           newpassword,
+        ]);
+      if (err) {
+        return this.serverError(res, "Failed to create account. Please try again.");
+      }
+      const userId = result.insertId
+      let Authres = await db.query(
+        "INSERT INTO user_auth ( user_id, otp, otp_expires_at) VALUES (?, ?, ?)",
+        [
+          userId,
           ganaratedOtp,
           otpExpiresAt,
-        ],
-      );
+        ])
+      if (err) {
+        return this.serverError(res, "Failed to set OTP. Please try again.");
+      }
       let sendEmail = await this.sendOTPEmail(reqdata?.email, ganaratedOtp);
       if (!sendEmail?.accepted) {
         return this.serverError(
           res,
           "Account created but failed to send verification email. Please request a new OTP.",
-        );
+        )
       }
       return this.successResponse(
         res,
@@ -111,10 +125,9 @@ class authController extends base {
           requiresVerification: true,
         },
         201,
-      );
+      )
     } catch (err) {
-      console.log(err, "error ");
-      return this.serverError(res);
+      console.log(err, "error from the server");
     }
   }
   verifiy_email = async (req, res) => {
@@ -123,63 +136,77 @@ class authController extends base {
       let isexist = await db.query("select * from users WHERE email=?", [
         reqBody?.email,
       ]);
-      if (isexist[0].lenght < 0)
+      if (isexist[0].length < 0)
         return res.status(404).json({ s: 0, m: "User not exist!", data: null });
       let usersdata = isexist[0][0];
-      let otpStoredExpiry = new Date(usersdata?.otp_expires_at);
+      let otpStoredExpiry = new Date(usersdata?.otp_expires_at)
       let currentTime = new Date();
-      let isExpire = currentTime > otpStoredExpiry;
-      if (isExpire) {
-        await db.query(
-          "UPDATE users SET  otp=null ,otp_expires_at=null WHERE email=?",
-          [usersdata?.email],
-        )
-        return res.status(403).json({
-          s: 0,
-          m: "Otp expired",
-          data: null,
-        });
-      }
-      if (reqBody?.otp == usersdata?.otp) {
-        let AccessToken = await this.ganerateAccessToken(usersdata?.email);
-        let RefreshToken = await this.generateRefreshToken(usersdata?.id);
-        await db.query(
-          "UPDATE users SET is_verifide=1 ,otp=null ,otp_expires_at=null ,access_token=?,refresh_token=? WHERE email=?",
-          [AccessToken, RefreshToken, usersdata?.email],
+      try {
+        let userRes = await db.query("SELECT * FROM users WHERE email=?", [
+          reqBody?.email,
+        ]);
+        if (!userRes[0]?.length) {
+          return res.status(404).json({ s: 0, m: "User not exist!", data: null });
+        }
+        let user = userRes[0][0];
+        let authRes = await db.query(
+          "SELECT * FROM user_auth WHERE user_id=? ORDER BY created_at DESC, id DESC LIMIT 1",
+          [user.id],
         );
-        let safeData = {
-          id: usersdata?.id,
-          name: usersdata?.name,
-          email: usersdata?.email,
-          is_verified: 1,
-          access_token: AccessToken,
-          refresh_token: RefreshToken,
-        };
-        return res.status(200).json({
-          s: 1,
-          m: "Otp Verifed Sucessfully !",
-          data: safeData,
-        });
-      } else {
-        await db.query(
-          "UPDTE users SET otp=null,otp_expires_at=null WHERE email=?",
-          [usersdata?.email],
-        );
-        return res.status(401).json({ s: 0, m: "Invalid Otp!", data: null });
-      }
-    } catch (err) {
-      console.log(err, "eRROR From api ");
-    }
-  }
-  resend_otp_email = async (req, res) => {
-    let reqData = req.body;
-    try {
-      let data = await db.query("select * from users WHERE email=?", [
-        reqData?.email,
-      ]);
+        if (!authRes[0]?.length) {
+          return res.status(404).json({ s: 0, m: "OTP record not found", data: null });
+        }
+        let authRow = authRes[0][0];
+        let otpStoredExpiry = new Date(authRow?.otp_expires_at);
+        let currentTime = new Date();
+        if (currentTime > otpStoredExpiry) {
+          await db.query(
+            "UPDATE user_auth SET otp=null, otp_expires_at=null WHERE id=?",
+            [authRow.id],
+          );
+          return res.status(403).json({ s: 0, m: "Otp expired", data: null });
+        }
 
-      if (!data[0]?.length) return this.notFoundError(res, "User Not found");
+
+        // 4) verify otp
+        if (reqBody?.otp == authRow?.otp) {
+          let AccessToken = await this.ganerateAccessToken(user.email);
+          let RefreshToken = await this.generateRefreshToken(authRow.user_id);
+
+          console.log(RefreshToken, " RefreshToken");
+          console.log(AccessToken, "AccessToken ");
+          await db.query(
+            "UPDATE users SET is_verifide=1 WHERE id=?",
+            [AccessToken, RefreshToken, authRow.user_id],
+          );
+          await db.query(
+            "UPDATE user_auth SET otp=null, otp_expires_at=null ,access_token=?, refresh_token=? WHERE user_id=?",
+            [AccessToken, RefreshToken, authRow.user_id],
+          );
+
+          let safeData = {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            is_verified: 1,
+            access_token: AccessToken,
+            refresh_token: RefreshToken,
+          };
+          return res.status(200).json({ s: 1, m: "Otp Verified Successfully!", data: safeData });
+        } else {
+          await db.query(
+            "UPDATE user_auth SET otp=null, otp_expires_at=null WHERE user_id=?",
+            [authRow.user_id],
+          );
+          return this.errorResponse(res, "Invalid Otp!", "INVALID_OTP", 400);
+        }
+      } catch (err) {
+        console.log(err, "ERROR From api");
+        return this.serverError(res);
+      }
+
       let userdata = data[0][0];
+      let authRes = await db.query("select * from user_auth where user_id=? ", [userdata.id]);
       if (userdata?.is_verified == 1) {
         return this.errorResponse(
           res,
@@ -189,22 +216,22 @@ class authController extends base {
         )
       }
 
-      let ganerateNewotp = this.GanerateEmailOtp()
-      
-      let otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      await db.query("UPDATE users SET otp=?,otp_expires_at=? WHERE email=?", [
-        ganerateNewotp,
-        otpExpiresAt,
-        userdata?.email,
-      ]);
-      let sendEmail = await this.sendOTPEmail(reqData?.email, ganerateNewotp);
-      if (!sendEmail?.accepted) {
-        return this.serverError(res, "Please requeslst a new OTP.");
-      }
-      return this.successResponse(res, "Otp sent successfully", {
-        email: userdata?.email,
-        expiresIn: "10 minutes",
-      });
+      // let ganerateNewotp = this.GanerateEmailOtp()
+
+      // let otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      // await db.query("UPDATE users SET otp=?,otp_expires_at=? WHERE email=?", [
+      //   ganerateNewotp,
+      //   otpExpiresAt,
+      //   userdata?.email,
+      // ]);
+      // let sendEmail = await this.sendOTPEmail(reqData?.email, ganerateNewotp);
+      // if (!sendEmail?.accepted) {
+      //   return this.serverError(res, "Please requeslst a new OTP.");
+      // }
+      // return this.successResponse(res, "Otp sent successfully", {
+      //   email: userdata?.email,
+      //   expiresIn: "10 minutes",
+      // });
     } catch (err) {
       console.error("Resend OTP error:", err);
       return this.serverError(res);
@@ -373,4 +400,5 @@ class authController extends base {
 }
 const authcontroller = new authController();
 export default authcontroller;
+
 

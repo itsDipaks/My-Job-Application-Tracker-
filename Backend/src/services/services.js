@@ -20,11 +20,12 @@ const transporter = nodemailer.createTransport({
     return otp;
   };
   sendOTPEmail = async (toEmail, otp) => {
-    let response = await transporter.sendMail({
-      from: `"Job Tracker" <${process.env.SMTP_USER}>`,
-      to: toEmail,
-      subject: "Your verification OTP",
-      html: `
+    try {
+      let response = await transporter.sendMail({
+        from: `"Job Tracker" <${process.env.SMTP_USER}>`,
+        to: toEmail,
+        subject: "Your verification OTP",
+        html: `
       <div style="font-family: Arial, sans-serif; max-width: 400px; margin: auto;">
         <h2>Verify your email</h2>
         <p>Your OTP is:</p>
@@ -33,18 +34,25 @@ const transporter = nodemailer.createTransport({
         <p>If you didn't request this, ignore this email.</p>
       </div>
     `,
-    })
-    if (response?.accepted) {
-      return response;
+      });
+      if (response?.accepted?.length) {
+        return response;
+      }
+      console.error("OTP email was not accepted:", response);
+      return null;
+    } catch (error) {
+      console.error("Error sending OTP email:", error);
+      return null;
     }
-    return null;
   }
+
   sendPasswordResetOTP = async (toEmail, otp) => {
-  let response = await transporter.sendMail({
-    from: `"Job Tracker" <${process.env.SMTP_USER}>`,
-    to: toEmail,
-    subject: "Password Reset OTP",
-    html: `
+    try {
+      let response = await transporter.sendMail({
+        from: `"Job Tracker" <${process.env.SMTP_USER}>`,
+        to: toEmail,
+        subject: "Password Reset OTP",
+        html: `
       <div style="font-family: Arial, sans-serif; max-width: 400px; margin: auto;">
         <h2>Reset Your Password</h2>
         <p>You requested to reset your password. Your OTP is:</p>
@@ -53,12 +61,17 @@ const transporter = nodemailer.createTransport({
         <p><strong>Security Notice:</strong> If you didn't request this password reset, please ignore this email and ensure your account is secure.</p>
       </div>
     `,
-  });
-  if (response?.accepted) {
-    return response;
-  }
-  return null;
-};
+      });
+      if (response?.accepted?.length) {
+        return response;
+      }
+      console.error("Password reset email was not accepted:", response);
+      return null;
+    } catch (error) {
+      console.error("Error sending password reset email:", error);
+      return null;
+    }
+  };
 
 
 

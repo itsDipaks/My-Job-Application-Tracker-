@@ -1,0 +1,9 @@
+SMTP_USER=dipakpawar5606@gmail.com
+SMTP_PASS=rsbhfcpqciodgujk
+JWT_SECRET=Dipak4206@
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=myapplicationtracker
+PORT=4100
