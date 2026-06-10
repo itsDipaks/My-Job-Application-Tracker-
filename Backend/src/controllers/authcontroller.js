@@ -2,8 +2,9 @@ import db from "../config/db.js";
 import { base } from "../services/base.js";
 class authController extends base {
   constructor() {
-    super()
+    super();
   }
+
   login = async (req, res) => {
     let reqdata = req.body;
     if (!reqdata?.email) return this.validationError(res, "Email is required");
@@ -18,37 +19,54 @@ class authController extends base {
           .status(404)
           .json({ s: 0, m: "User not exist! !", data: null });
       let user = datares[0][0];
+
+      let alldetails = await db.query(
+        `SELECT users.*, user_auth.*
+   FROM users
+   LEFT JOIN user_auth ON users.id = user_auth.user_id
+   WHERE users.id = ?`,
+        [user?.id],
+      );
+      let authres = alldetails[0][0];
       if (
-        user?.is_verifide == 1 &&
-        (user?.google_id !== null) & (user?.password == null)
+        authres?.is_verifide == 1 &&
+        (authres?.google_id !== null) & (authres?.password == null)
       )
-        return res
-          .status(400)
-          .json({
-            s: 0,
-            m: "The Email is associate with the google login you want to set the password ?",
-          })
+        return res.status(400).json({
+          s: 0,
+          m: "The Email is associate with the google login you want to set the password ?",
+        });
       let ispasswordvalid = await this.verifiyPassword(
         reqdata?.password,
-        user?.password_hash,
-      );
+        authres?.password,
+      )
       if (!ispasswordvalid)
         return res
           .status(400)
           .json({ s: 0, m: "Invalid crdentials.", data: null });
-      if (user?.is_verifide == 0) {
+      if (authres?.is_verifide == 0) {
         let Newotp = this.GanerateEmailOtp();
         let sendotpagain = await this.sendOTPEmail(reqdata?.email, Newotp);
         if (sendotpagain?.response !== null) {
           let otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-          await db.query(
-            "UPDATE users SET otp=?,otp_expires_at=?,updated_at=Now() WHERE email=?",
-            [Newotp, otpExpiresAt, user?.email],
+          let [result] = await db.query(
+            "UPDATE user_auth SET otp=?,otp_expires_at=? WHERE user_id=?",
+            [Newotp, otpExpiresAt, user?.id],
           );
-          return res.status(200).json({
-            res,
-            m: `Email not verified, Otp Sent to ${reqdata?.email}`,
-          });
+          if (result?.affectedRows > 0) {
+            return this.VerificationError(
+              res,
+              { is_verifide: 0, email: authres?.email },
+              `Email not verified, Otp Sent to ${authres?.email}`,
+              "EMAIL_VERIFICATION_PENDING",
+            );
+          } else {
+            return this.errorResponse(
+              res,
+              { is_verifide: 0, email: authres?.email },
+              "Email Not verified please try again !",
+            );
+          }
         } else {
           return res.status(401).json({
             res,
@@ -58,12 +76,12 @@ class authController extends base {
       }
       let dataresponse = {
         ...user,
-      }
+      };
       return this.sucessResponse(res, "Login successful", dataresponse);
     } catch (err) {
       console.log(err, "error ");
     }
-  };
+  }
   signup = async (req, res) => {
     let reqdata = req.body;
     if (!reqdata?.email) return this.validationError(res, "Email is required");
@@ -73,38 +91,31 @@ class authController extends base {
     try {
       let response = await db.query("select * from users where email=?", [
         reqdata?.email,
-      ])
-
+      ]);
       if (response[0].length > 0)
         return this.errorResponse(
           res,
           "An account with this email already exists",
-          "GOOGLE_ASSOCIATE_ACCOUNT"
+          "GOOGLE_ASSOCIATE_ACCOUNT",
         );
       let newpassword = await this.hashedPassword(reqdata?.password);
-
       let ganaratedOtp = this.GanerateEmailOtp();
       let otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-      console.log("befor calling insert user");
-
       let [result, err] = await db.query(
         "INSERT INTO users ( name, email, password) VALUES (?, ?, ?)",
-        [
-          reqdata?.name,
-          reqdata?.email,
-          newpassword,
-        ]);
+        [reqdata?.name, reqdata?.email, newpassword],
+      );
       if (err) {
-        return this.serverError(res, "Failed to create account. Please try again.");
+        return this.serverError(
+          res,
+          "Failed to create account. Please try again.",
+        );
       }
-      const userId = result.insertId
+      const userId = result.insertId;
       let Authres = await db.query(
         "INSERT INTO user_auth ( user_id, otp, otp_expires_at) VALUES (?, ?, ?)",
-        [
-          userId,
-          ganaratedOtp,
-          otpExpiresAt,
-        ])
+        [userId, ganaratedOtp, otpExpiresAt],
+      );
       if (err) {
         return this.serverError(res, "Failed to set OTP. Please try again.");
       }
@@ -113,7 +124,7 @@ class authController extends base {
         return this.serverError(
           res,
           "Account created but failed to send verification email. Please request a new OTP.",
-        )
+        );
       }
       return this.successResponse(
         res,
@@ -125,11 +136,12 @@ class authController extends base {
           requiresVerification: true,
         },
         201,
-      )
+      );
     } catch (err) {
       console.log(err, "error from the server");
     }
-  }
+  };
+
   verifiy_email = async (req, res) => {
     let reqBody = req.body;
     try {
@@ -139,14 +151,16 @@ class authController extends base {
       if (isexist[0].length < 0)
         return res.status(404).json({ s: 0, m: "User not exist!", data: null });
       let usersdata = isexist[0][0];
-      let otpStoredExpiry = new Date(usersdata?.otp_expires_at)
+      let otpStoredExpiry = new Date(usersdata?.otp_expires_at);
       let currentTime = new Date();
       try {
         let userRes = await db.query("SELECT * FROM users WHERE email=?", [
           reqBody?.email,
         ]);
         if (!userRes[0]?.length) {
-          return res.status(404).json({ s: 0, m: "User not exist!", data: null });
+          return res
+            .status(404)
+            .json({ s: 0, m: "User not exist!", data: null });
         }
         let user = userRes[0][0];
         let authRes = await db.query(
@@ -154,7 +168,9 @@ class authController extends base {
           [user.id],
         );
         if (!authRes[0]?.length) {
-          return res.status(404).json({ s: 0, m: "OTP record not found", data: null });
+          return res
+            .status(404)
+            .json({ s: 0, m: "OTP record not found", data: null });
         }
         let authRow = authRes[0][0];
         let otpStoredExpiry = new Date(authRow?.otp_expires_at);
@@ -166,24 +182,18 @@ class authController extends base {
           );
           return res.status(403).json({ s: 0, m: "Otp expired", data: null });
         }
-
-
-        // 4) verify otp
         if (reqBody?.otp == authRow?.otp) {
           let AccessToken = await this.ganerateAccessToken(user.email);
           let RefreshToken = await this.generateRefreshToken(authRow.user_id);
-
-          console.log(RefreshToken, " RefreshToken");
-          console.log(AccessToken, "AccessToken ");
-          await db.query(
-            "UPDATE users SET is_verifide=1 WHERE id=?",
-            [AccessToken, RefreshToken, authRow.user_id],
-          );
+          await db.query("UPDATE users SET is_verifide=1 WHERE id=?", [
+            AccessToken,
+            RefreshToken,
+            authRow.user_id,
+          ]);
           await db.query(
             "UPDATE user_auth SET otp=null, otp_expires_at=null ,access_token=?, refresh_token=? WHERE user_id=?",
             [AccessToken, RefreshToken, authRow.user_id],
           );
-
           let safeData = {
             id: user.id,
             name: user.name,
@@ -192,7 +202,9 @@ class authController extends base {
             access_token: AccessToken,
             refresh_token: RefreshToken,
           };
-          return res.status(200).json({ s: 1, m: "Otp Verified Successfully!", data: safeData });
+          return res
+            .status(200)
+            .json({ s: 1, m: "Otp Verified Successfully!", data: safeData });
         } else {
           await db.query(
             "UPDATE user_auth SET otp=null, otp_expires_at=null WHERE user_id=?",
@@ -204,16 +216,17 @@ class authController extends base {
         console.log(err, "ERROR From api");
         return this.serverError(res);
       }
-
       let userdata = data[0][0];
-      let authRes = await db.query("select * from user_auth where user_id=? ", [userdata.id]);
+      let authRes = await db.query("select * from user_auth where user_id=? ", [
+        userdata.id,
+      ]);
       if (userdata?.is_verified == 1) {
         return this.errorResponse(
           res,
           "Email is already verified",
           "ALREADY_VERIFIED",
           400,
-        )
+        );
       }
 
       // let ganerateNewotp = this.GanerateEmailOtp()
@@ -236,7 +249,8 @@ class authController extends base {
       console.error("Resend OTP error:", err);
       return this.serverError(res);
     }
-  }
+  };
+
   resend_reset_password_otp = async (req, res) => {
     let reqData = req.body;
     if (!reqData?.email) {
@@ -287,7 +301,8 @@ class authController extends base {
       console.error("Resend password reset OTP error:", err);
       return this.serverError(res);
     }
-  }
+  };
+
   set_password = async () => {
     let reqData = req.body;
     try {
@@ -307,7 +322,8 @@ class authController extends base {
       console.error("Resend OTP error:", err);
       return this.serverError(res);
     }
-  }
+  };
+
   social_login = async (req, res) => {
     let reqData = req.body;
     try {
@@ -396,9 +412,8 @@ class authController extends base {
       console.error("Social login error:", err);
       return this.serverError(res, "Server error during social login");
     }
-  }
+  };
 }
+
 const authcontroller = new authController();
 export default authcontroller;
-
-

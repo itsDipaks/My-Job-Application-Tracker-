@@ -1,44 +1,49 @@
 export class responsehandler {
-  constructor() {
-  };
+  constructor() {}
   successResponse = (res, message, data, statusCode = 200) => {
     return res.status(statusCode).json({
       s: 1,
       m: message,
       data: data,
-    })
+    });
   };
-    errorResponse = (res, message, errorCode = null, statusCode = 400, data = null) => {
+  errorResponse = (
+    res,
+    message,
+    errorCode = null,
+    statusCode = 400,
+    data = null,
+  ) => {
     return res.status(statusCode).json({
       s: 0,
       m: message,
       errorCode: errorCode,
       data: data,
-    })
+    });
   };
-    validationError = (res, message) => {
+  validationError = (res, message) => {
     return res.status(400).json({
       s: 0,
       m: message,
       errorCode: "VALIDATION_ERROR",
       data: null,
-    })
+    });
   };
-    notFoundError = (res, message) => {
+  notFoundError = (res, message) => {
     return res.status(404).json({
       s: 0,
       m: message,
       errorCode: "NOT_FOUND",
       data: null,
-    })
+    });
   };
-   unauthorizedError = (res, message) => {
+  unauthorizedError = (res, message) => {
     return res.status(401).json({
       s: 0,
       m: message,
       errorCode: "UNAUTHORIZED",
       data: null,
-    })
+    });
   };
   conflictError = (res, message) => {
     return res.status(409).json({
@@ -46,14 +51,31 @@ export class responsehandler {
       m: message,
       errorCode: "CONFLICT",
       data: null,
-    })
+    });
   };
-    serverError = (res, message = "Something went wrong. Please try again later.") => {
+  serverError = (
+    res,
+    message = "Something went wrong. Please try again later.",
+  ) => {
     return res.status(500).json({
       s: 0,
       m: message,
       errorCode: "SERVER_ERROR",
       data: null,
-    })
+    });
   }
-};
+    VerificationError = (
+      res,
+      data,
+      message = "Verification Pending",
+      errorCode="VERIFICATION_PENDING"
+    ) => {
+      return res.status(200).json({
+        s: 0,
+        m: message,
+        errorCode:errorCode,
+        data: data
+      });
+    
+  };
+}

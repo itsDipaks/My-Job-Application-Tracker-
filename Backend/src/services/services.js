@@ -2,22 +2,21 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import crypto from "crypto";
 import { responsehandler } from "./responsehandeler.js";
-dotenv.config();
-
+dotenv.config()
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-});
+})
  export class services extends responsehandler {
   constructor() {
-    super();
+    super()
   }
   GanerateEmailOtp = () => {
     const otp = crypto.randomInt(100000, 999999).toString();
-    return otp;
+    return otp
   };
   sendOTPEmail = async (toEmail, otp) => {
     try {
@@ -45,7 +44,6 @@ const transporter = nodemailer.createTransport({
       return null;
     }
   }
-
   sendPasswordResetOTP = async (toEmail, otp) => {
     try {
       let response = await transporter.sendMail({
@@ -71,13 +69,8 @@ const transporter = nodemailer.createTransport({
       console.error("Error sending password reset email:", error);
       return null;
     }
-  };
-
-
-
-
+  }
   SendVerificationotp = () => {};
 }
-
 let serviceData=new services()
-export default serviceData
+export default serviceData;

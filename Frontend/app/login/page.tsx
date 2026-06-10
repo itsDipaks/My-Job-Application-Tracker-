@@ -23,7 +23,7 @@ export default function LoginPage() {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
-    });
+    })
   }
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,7 +117,6 @@ export default function LoginPage() {
       toast.error(error.message || "Failed to sign in with Google");
     }
   }
-
   return (
     <div className="flex min-h-screen bg-gray-950">
       {/* Left Side - Content */}

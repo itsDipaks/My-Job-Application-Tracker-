@@ -88,7 +88,8 @@ export const verifyOTP = createAsyncThunk(
       const data = await authService.verifyOTP(email, otp);
       return data;
     } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
+      return rejectWithValue(getErrorMessage(error))
+      
     }
   }
 );

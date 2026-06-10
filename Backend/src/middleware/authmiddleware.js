@@ -1,6 +1,5 @@
 import { base } from "../services/base.js";
 const baseService = new base();
-
 export const authmiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers?.authorization;
@@ -19,7 +18,7 @@ export const authmiddleware = async (req, res, next) => {
         m: "Invalid token format",
         errorCode: "UNAUTHORIZED",
         data: null,
-      });
+      })
     }
     const decoded = baseService.verifyToken(token);
     if (!decoded) {
@@ -29,17 +28,21 @@ export const authmiddleware = async (req, res, next) => {
         errorCode: "UNAUTHORIZED",
         data: null,
       });
-    }
+    };
+
     req.user = decoded;
-    
+
     next();
+
   } catch (err) {
-    console.error("Auth middleware error:", err);
-    return res.status(500).json({
-      s: 0,
-      m: "Authentication failed",
-      errorCode: "SERVER_ERROR",
-      data: null,
-    });
+    
+    // console.error("Auth middleware error:", err);
+    // return res.status(500).json({
+    //   s: 0,
+    //   m: "Authentication failed",
+    //   errorCode: "SERVER_ERROR",
+    //   data: null,
+    // })
   }
-};
+}
+
