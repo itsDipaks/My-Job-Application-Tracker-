@@ -33,7 +33,6 @@ const getErrorMessage = (error: unknown): string => {
   return 'An unexpected error occurred';
 };
 
-// Async thunks for authentication
 export const loginUser = createAsyncThunk(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
@@ -93,7 +92,6 @@ export const verifyOTP = createAsyncThunk(
     }
   }
 );
-
 export const resendOTP = createAsyncThunk(
   'auth/resendOTP',
   async ({ email }: { email: string }, { rejectWithValue }) => {
@@ -104,8 +102,7 @@ export const resendOTP = createAsyncThunk(
       return rejectWithValue(getErrorMessage(error));
     }
   }
-);
-
+)
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -138,7 +135,11 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload.user;
+        state.user = {
+          id: action.payload.data.id,
+          name: action.payload.data.name,
+          email: action.payload.data.email,
+        };
         state.isAuthenticated = true;
       })
       .addCase(loginUser.rejected, (state, action) => {
@@ -152,8 +153,14 @@ const authSlice = createSlice({
       })
       .addCase(signupUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload.user;
-        state.isAuthenticated = true;
+        if (action.payload.data) {
+          state.user = {
+            id: action.payload.data.id,
+            name: action.payload.data.name,
+            email: action.payload.data.email,
+          };
+          state.isAuthenticated = true;
+        }
       })
       .addCase(signupUser.rejected, (state, action) => {
         state.isLoading = false;
@@ -182,7 +189,11 @@ const authSlice = createSlice({
       })
       .addCase(googleLogin.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload.user;
+        state.user = {
+          id: action.payload.data.id,
+          name: action.payload.data.name,
+          email: action.payload.data.email,
+        };
         state.isAuthenticated = true;
       })
       .addCase(googleLogin.rejected, (state, action) => {
@@ -196,7 +207,11 @@ const authSlice = createSlice({
       })
       .addCase(verifyOTP.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload.user;
+        state.user = {
+          id: action.payload.data.id,
+          name: action.payload.data.name,
+          email: action.payload.data.email,
+        };
         state.isAuthenticated = true;
       })
       .addCase(verifyOTP.rejected, (state, action) => {
@@ -216,7 +231,7 @@ const authSlice = createSlice({
         state.error = action.payload as string;
       });
   },
-});
+})
 
 export const { clearError, setUser, restoreAuth } = authSlice.actions;
 export default authSlice.reducer;

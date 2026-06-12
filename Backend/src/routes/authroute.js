@@ -9,4 +9,5 @@ authRoutes.post("/signup", authcontroller.signup);
 authRoutes.post("/verify-email", authcontroller.verifiy_email);
 authRoutes.post("/resend-otp-email", authcontroller.resend_reset_password_otp);
 authRoutes.post("/social-login", authcontroller.social_login);
+authRoutes.post("/refresh-token", authcontroller.refresh_token);
 export default authRoutes;

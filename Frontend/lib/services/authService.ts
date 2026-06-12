@@ -13,21 +13,29 @@ export interface SignupData {
 }
 
 export interface AuthResponse {
-  user: {
+  s: number;
+  m: string;
+  data: {
     id: string;
     name: string;
     email: string;
+    is_verified: number;
+    access_token: string;
+    refresh_token: string;
   };
-  token: string;
 }
 
 export interface GoogleAuthResponse {
-  user: {
+  s: number;
+  m: string;
+  data: {
     id: string;
     name: string;
     email: string;
+    is_verified: number;
+    access_token: string;
+    refresh_token: string;
   };
-  token: string;
 }
 
 // Helper to extract error message from backend response
@@ -55,10 +63,15 @@ export const authService = {
     try {
       const response = await api.post<AuthResponse>('/auth/login', credentials);
       
-      // Store token and user in localStorage
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Store tokens and user in localStorage (match backend response format)
+      if (response.data.data?.access_token) {
+        localStorage.setItem('access_token', response.data.data.access_token);
+        localStorage.setItem('refresh_token', response.data.data.refresh_token);
+        localStorage.setItem('user', JSON.stringify({
+          id: response.data.data.id,
+          name: response.data.data.name,
+          email: response.data.data.email,
+        }));
       }
       
       return response.data;
@@ -72,10 +85,15 @@ export const authService = {
     try {
       const response = await api.post<AuthResponse>('/auth/signup', userData);
       
-      // Store token and user in localStorage
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Store tokens and user in localStorage if verification not required
+      if (response.data.data?.access_token) {
+        localStorage.setItem('access_token', response.data.data.access_token);
+        localStorage.setItem('refresh_token', response.data.data.refresh_token);
+        localStorage.setItem('user', JSON.stringify({
+          id: response.data.data.id,
+          name: response.data.data.name,
+          email: response.data.data.email,
+        }));
       }
       
       return response.data;
@@ -90,7 +108,8 @@ export const authService = {
       await api.post('/auth/logout');
     } finally {
       // Clear local storage regardless of API response
-      localStorage.removeItem('token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
     }
   },
@@ -101,10 +120,15 @@ export const authService = {
       token: googleToken,
     });
     
-    // Store token and user in localStorage
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    // Store tokens and user in localStorage
+    if (response.data.data?.access_token) {
+      localStorage.setItem('access_token', response.data.data.access_token);
+      localStorage.setItem('refresh_token', response.data.data.refresh_token);
+      localStorage.setItem('user', JSON.stringify({
+        id: response.data.data.id,
+        name: response.data.data.name,
+        email: response.data.data.email,
+      }));
     }
     
     return response.data;
@@ -116,14 +140,19 @@ export const authService = {
     return userStr ? JSON.parse(userStr) : null;
   },
 
-  // Get token from localStorage
+  // Get access token from localStorage
   getToken: () => {
-    return localStorage.getItem('token');
+    return localStorage.getItem('access_token');
+  },
+
+  // Get refresh token from localStorage
+  getRefreshToken: () => {
+    return localStorage.getItem('refresh_token');
   },
 
   // Check if user is authenticated
   isAuthenticated: () => {
-    return !!localStorage.getItem('token');
+    return !!localStorage.getItem('access_token');
   },
 
   // Verify token with backend (optional)
@@ -143,9 +172,14 @@ export const authService = {
       otp,
     });
      
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    if (response.data.data?.access_token) {
+      localStorage.setItem('access_token', response.data.data.access_token);
+      localStorage.setItem('refresh_token', response.data.data.refresh_token);
+      localStorage.setItem('user', JSON.stringify({
+        id: response.data.data.id,
+        name: response.data.data.name,
+        email: response.data.data.email,
+      }));
     }
     
     return response.data;

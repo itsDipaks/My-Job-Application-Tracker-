@@ -139,7 +139,7 @@ export default function TrackerPage() {
     company_type: CompanyType;
     appliedDate: string;
     appliedTime: string;
-    role: number;
+    job_role: number;
   }) => {
     try {
       // Combine date and time into datetime format (YYYY-MM-DD HH:MM:SS)
@@ -151,7 +151,7 @@ export default function TrackerPage() {
       // Prepare API payload
       const payload = {
         company_name: data.company,
-        role: data.role, // ID 1,2,3,4
+        job_role: data.job_role, // ID 1=Frontend, 2=Backend, 3=Full Stack, 4=DevOps
         source: data.source, // "LinkedIn", "Naukri", etc.
         applied_on: appliedOn, // "YYYY-MM-DD HH:MM:SS"
         company_type: companyTypeId, // 1 = Service, 2 = Product
@@ -167,8 +167,8 @@ export default function TrackerPage() {
         const newJob: Job = {
           id: response.data.data?.id || Date.now().toString(),
           company: data.company,
-          role: getRoleName(data.role),
-          developer_type: 'Full Stack Developer',
+          role: getRoleName(data.job_role),
+          developer_type: getDeveloperType(data.job_role),
           source: data.source,
           company_type: data.company_type,
           status: 'Applied',

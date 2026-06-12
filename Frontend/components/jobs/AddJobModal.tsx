@@ -11,7 +11,7 @@ interface AddJobModalProps {
     company_type: CompanyType;
     appliedDate: string;
     appliedTime: string;
-    role: number;
+    job_role: number;
   }) => void;
 }
 export default function AddJobModal({ isOpen, onClose, onAdd }: AddJobModalProps) {
@@ -51,7 +51,7 @@ export default function AddJobModal({ isOpen, onClose, onAdd }: AddJobModalProps
     if (company.trim()) {
       onAdd({
         company: company.trim(),
-        role,
+        job_role:role,
         source,
         company_type: companyType,
         appliedDate,

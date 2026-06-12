@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-})
+});
  export class services extends responsehandler {
   constructor() {
     super()
@@ -70,7 +70,11 @@ const transporter = nodemailer.createTransport({
       return null;
     }
   }
-  SendVerificationotp = () => {};
+  SendVerificationotp = () => {
+
+
+
+  };
 }
 let serviceData=new services()
 export default serviceData;

@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import { services } from "./services.js";
 export class base extends services {
   constructor() {
-    super();
+    super()
   }
   sucessResponse = (res, m, data) => {
     return res.status(200).json({
@@ -22,7 +22,7 @@ export class base extends services {
     return jwt.sign({ userId, email }, process.env.JWT_SECRET, {
       expiresIn: "15m",
     });
-  };
+  }
   generateRefreshToken = (userId) => {
     return jwt.sign({ userId, type: "refresh" }, process.env.JWT_SECRET, {
       expiresIn: "7d",
@@ -32,11 +32,16 @@ export class base extends services {
     try {
       return jwt.verify(token, process.env.JWT_SECRET);
     } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        console.log('Token expired at:', error.expiredAt);
+        return { expired: true };
+      } else if (error.name === 'JsonWebTokenError') {
+        console.log('Invalid token:', error.message);
+      }
       return null;
     }
-  };
+  }
   errorResponse = (res, m) => {
     return res.status(400).json({ s: 0, m: m, data: null });
-  };
+  }
 }
-
